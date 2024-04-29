@@ -18,6 +18,7 @@ window.onload = () => {
 function displayNote(note) {
   const noteElement = document.createElement('div');
   noteElement.classList.add('note');
+  noteElement.setAttribute("id",`note-${note.id}`)
   noteElement.innerHTML = `
     <h3>${note.id}</h3>
     <p>${note.name}</p>
