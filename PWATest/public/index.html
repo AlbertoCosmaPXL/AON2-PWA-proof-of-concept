@@ -16,15 +16,32 @@
     }
   </script>
   <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>My Notes</h1>
-  <div id="notes-container"></div>
-  <form id="note-form">
-    <input type="text" id="name" placeholder="todo name">
-    <input type="checkbox" id="done" placeholder="done">
-    <button type="submit">Add Todo</button>
-  </form>
+<main>
+  <header>
+    <h1>Mijn notities</h1>
+    <button class="AddNoteButton" onclick="displayAddNote()">+</button>
+  </header>
+
+  <section id="notes-container"></section>
+</main>
+
+
+  <div class="AddNote" style="display: none" >
+    <div class="AddNoteInner">
+      <div class="addNoteHeader">
+        <h1>Notitie toevoegen:</h1>
+        <button class="closeWindow" onclick="displayAddNote()">X</button>
+      </div>
+      <form id="note-form">
+        <input type="text" id="addTitle" placeholder="Titel">
+        <textarea id="addContent" placeholder="Omschrijving"></textarea>
+        <button type="submit">Toevoegen</button>
+      </form>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

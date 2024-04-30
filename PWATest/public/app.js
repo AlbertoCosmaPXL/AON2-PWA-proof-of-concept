@@ -5,7 +5,7 @@ const noteForm = document.getElementById('note-form');
 
 // Fetch notes from backend and display on page load
 window.onload = () => {
-  fetch('http://localhost:3000/items')
+  fetch('http://localhost:3000/notes')
     .then(response => response.json())
     .then(notes => {
       notes.forEach(note => {
@@ -20,10 +20,12 @@ function displayNote(note) {
   noteElement.classList.add('note');
   noteElement.setAttribute("id",`note-${note.id}`)
   noteElement.innerHTML = `
-    <h3>${note.id}</h3>
-    <p>${note.name}</p>
-    <p>${note.done}</p>
-    <button onclick="deleteNote(${note.id})">Delete</button>
+    <div class="noteHeader">
+    <h3>${note.title}</h3>
+    <button class="deleteButton" onclick="deleteNote(${note.id})">X</button>
+    </div>
+    <p>${note.content}</p>
+    
   `;
   notesContainer.appendChild(noteElement);
 }
@@ -31,28 +33,38 @@ function displayNote(note) {
  //function to add a new note
 noteForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  const name = document.getElementById('name').value;
-  const done = document.getElementById('done').value;
-  fetch('http://localhost:3000/items', {
+  const title = document.getElementById('addTitle').value;
+  const content = document.getElementById('addContent').value;
+  fetch('http://localhost:3000/notes', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ name, done })
+    body: JSON.stringify({ title, content })
   })
   .then(response => response.json())
   .then(data => {
-    displayNote({ id: data.id, name, done });
+    displayNote({ id: data.id, title, content });
     noteForm.reset();
+    displayAddNote();
   });
 });
 
 // Function to delete a note
 function deleteNote(id) {
-  fetch(`http://localhost:3000/items/${id}`, {
+  fetch(`http://localhost:3000/notes/${id}`, {
     method: 'DELETE'
   })
   .then(() => {
     document.getElementById(`note-${id}`).remove();
   });
+}
+
+function displayAddNote() {
+  const addNoteView = document.getElementsByClassName('AddNote')[0];
+  if (addNoteView.style.display === 'none') {
+    addNoteView.style.display = 'block'; // Set this to whatever it was initially
+  } else {
+    addNoteView.style.display = 'none';
+  }
 }
