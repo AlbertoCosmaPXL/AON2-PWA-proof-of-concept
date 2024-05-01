@@ -4,16 +4,6 @@
       "id": 2,
       "title": "Web Advanced",
       "content": "WP2 moet nog afgemaakt worden. Hiervoor gebruiken we php."
-    },
-    {
-      "title": "test2",
-      "content": "Dit is een test voor een notitie",
-      "id": 6
-    },
-    {
-      "title": "test3",
-      "content": "Nog een test voor een notitie\n",
-      "id": 7
     }
   ]
 }
