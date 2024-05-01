@@ -6,14 +6,19 @@
       "content": "WP2 moet nog afgemaakt worden. Hiervoor gebruiken we php."
     },
     {
-      "title": "dfgdfgdfg",
-      "content": "dfgdfgfdgdf",
+      "title": "Web Esential",
+      "content": "Al gedaan\n",
+      "id": 3
+    },
+    {
+      "title": "Nog een app",
+      "content": "dfgdfgdfg",
       "id": 4
     },
     {
-      "title": "fghfgh",
-      "content": "fgh gfh gfdhfgdhfg dhfd hfg dfg hgfd hfghfg hfghfgh gfh dfhfgd hfg hfg",
-      "id": 6
+      "title": "fg",
+      "content": "fgh",
+      "id": 5
     }
   ]
 }
