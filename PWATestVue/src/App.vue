@@ -1,67 +1,151 @@
 <script setup>
-  import {ref} from "vue";
-  import axios from "axios"
+  import { ref, onMounted, watch } from "vue";
+  import axios from "axios";
 
   const notesRef = ref([]);
   const showAddNotes = ref(false);
+  const newNote = ref({ title: "", content: "" });
 
-  const newNote = ref(
-    {
-      title: "",
-      content: ""
-    }
-  )
+  let db;
 
-  fetch('http://localhost:3000/notes')
-    .then(response => response.json())
-    .then(notes => {
-      notes.forEach(note => {
-        notesRef.value.push(note);
+  onMounted(() => {
+    const request = indexedDB.open("NotesDatabase", 1);
+
+    request.onerror = function (event) {
+      console.error("IndexedDB error");
+      console.error(event);
+    };
+
+    request.onupgradeneeded = function () {
+      db = request.result;
+      const store = db.createObjectStore("Notes", { keyPath: "id", autoIncrement: true });
+      store.createIndex("title", "title", { unique: false });
+      store.createIndex("content", "content", { unique: false });
+    };
+
+    request.onsuccess = function (event) {
+      db = event.target.result;
+      fetchNotesFromDB();
+      if (navigator.onLine) {
+        fetchNotesFromBackend(); // Probeer notities van de backend op te halen als er een internetverbinding is
+      }
+    };
+  });
+
+  // Haal notities op van IndexedDB
+  function fetchNotesFromDB() {
+    if (!db) return;
+    const transaction = db.transaction("Notes", "readonly");
+    const store = transaction.objectStore("Notes");
+    const getAllNotes = store.getAll();
+
+    getAllNotes.onsuccess = function(event) {
+      notesRef.value = event.target.result;
+    };
+  }
+
+  // Haal notities op van de backend
+  function fetchNotesFromBackend() {
+    axios.get("http://localhost:3000/notes")
+      .then(response => {
+        notesRef.value = response.data;
+        saveNotesToDB(response.data); // Sla notities op in IndexedDB
+      })
+      .catch(error => {
+        console.error("Fout bij het ophalen van notities van de server:", error);
       });
+  }
+
+  // Sla notities op in IndexedDB
+  function saveNotesToDB(notes) {
+    if (!db) return;
+    const transaction = db.transaction("Notes", "readwrite");
+    const store = transaction.objectStore("Notes");
+    notes.forEach(note => {
+      store.add(note);
     });
+  }
+
+// Voeg een nieuwe notitie toe
+function addNote() {
+  const note = { ...newNote.value };
+
+  // Als de notitie geen ID heeft, voeg een nieuwe ID toe
+  if (!note.id) {
+    note.id = Date.now(); // Gebruik milliseconden sinds de epoch als ID
+  }
+
+  notesRef.value.push(note);
+  saveNoteToDB(note); // Sla notitie op in IndexedDB
+  newNote.value = { title: "", content: "" }; // Leeg het invoerveld
+}
 
 
+
+// Sla een enkele notitie op in IndexedDB
+function saveNoteToDB(note) {
+  if (!db) return;
+  const transaction = db.transaction("Notes", "readwrite");
+  const store = transaction.objectStore("Notes");
+
+  if (!note.id) {
+    const request = store.add(note); // Voeg een nieuwe notitie toe met een auto-incremented ID
+    request.onerror = function(event) {
+      console.error("IndexedDB add error:", event.target.error);
+    };
+  } else {
+    const request = store.put(note); // Werk de bestaande notitie bij
+    request.onerror = function(event) {
+      console.error("IndexedDB put error:", event.target.error);
+    };
+  }
+}
+
+
+  // Verwijder een notitie
   function deleteNote(id) {
-    fetch(`http://localhost:3000/notes/${id}`, {
-      method: 'DELETE'
-    })
-    .then(() => {
-      location.reload();
-    });
-  }
-  function displayAddNote() {
-    if (showAddNotes.value === false) {
-      showAddNotes.value = true; // Set this to whatever it was initially
-    } else {
-      showAddNotes.value = false;
-    }
+    if (!db) return;
+    const transaction = db.transaction("Notes", "readwrite");
+    const store = transaction.objectStore("Notes");
+    store.delete(id);
+    fetchNotesFromDB(); // Opnieuw laden van notities na verwijdering
   }
 
-  function addNote(){
-    axios.post(`http://localhost:3000/notes/`, newNote.value);
-    displayAddNote()
-    location.reload();
-  }
+  // Kijk naar veranderingen in de internetverbinding
+  watch(
+    () => navigator.onLine,
+    (isOnline) => {
+      if (isOnline) {
+        fetchNotesFromBackend(); // Haal notities opnieuw op van de backend als de internetverbinding hersteld is
+      }
+    }
+  );
+
+  // Functie om het weergeven van de notitie toevoegen/verbergen te schakelen
+  const displayAddNote = () => {
+    showAddNotes.value = !showAddNotes.value;
+  };
 </script>
 
 <template>
   <main>
     <header>
-    <h1>Mijn notities</h1>
-    <button class="AddNoteButton" @click="displayAddNote()">+</button>
-  </header>
+      <h1>Mijn notities</h1>
+      <button class="AddNoteButton" @click="displayAddNote()">+</button>
+    </header>
 
-  <section id="notes-container">
-    <div v-bind:key="note.id" v-for="note in notesRef" class="note">
-      <div class="noteHeader">
-          <h3>{{note.title}}</h3>
+    <section id="notes-container">
+      <div v-bind:key="note.id" v-for="note in notesRef" class="note">
+        <div class="noteHeader">
+          <h3>{{ note.title }}</h3>
           <button class="deleteButton" @click="deleteNote(note.id)">X</button>
+        </div>
+        <p class="notep">{{ note.content }}</p>
       </div>
-      <p class="notep">{{note.content}}</p>
-    </div>
-  </section>
+    </section>
   </main>
-  <div v-if="showAddNotes" class="AddNote" >
+
+  <div v-if="showAddNotes" class="AddNote">
     <div class="AddNoteInner">
       <div class="addNoteHeader">
         <h1>Notitie toevoegen:</h1>
