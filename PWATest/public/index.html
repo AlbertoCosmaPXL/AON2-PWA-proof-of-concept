@@ -9,10 +9,23 @@
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/service-worker.js').then((registration) => {
           console.log('Service Worker registered with scope:', registration.scope);
-        }, (err) => {
+          if('SyncManager' in window){
+            registration.sync.registration('sync-tweets')
+          }
+        }
+        
+        , (err) => {
           console.log('Service Worker registration failed:', err);
-        });
+        })
+        
+        ;
       });
+
+      self.addEventListener('sync',e=>{
+        if (event.tag == 'sync-tweets'){
+          event.waitUntil(syncTweets())
+        }
+      })
     }
   </script>
   <link rel="manifest" href="manifest.json">
