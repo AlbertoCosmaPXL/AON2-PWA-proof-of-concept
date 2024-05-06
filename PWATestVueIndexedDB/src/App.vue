@@ -5,16 +5,16 @@ import axios from "axios";
 const notesRef = ref([]);
 const showAddNotes = ref(false);
 const newNote = ref({ title: "", content: "" });
-
 let db;
 
 onMounted(() => {
+  initializeDB();
+});
+
+async function initializeDB() {
   const request = indexedDB.open("NotesDatabase", 1);
 
-  request.onerror = function (event) {
-    console.error("IndexedDB error");
-    console.error(event);
-  };
+  request.onerror = (event) => console.error("IndexedDB error:", event);
 
   request.onupgradeneeded = function () {
     db = request.result;
@@ -23,103 +23,106 @@ onMounted(() => {
     store.createIndex("content", "content", { unique: false });
   };
 
-  request.onsuccess = function (event) {
+  request.onsuccess = async function (event) {
     db = event.target.result;
-    fetchNotesFromDB();
-    if (navigator.onLine) {
-      fetchNotesFromBackend(); // Probeer notities van de backend op te halen als er een internetverbinding is
-    }
+    fetchNotesFromBackend();
   };
-});
+}
 
-// Haal notities op van IndexedDB
-function fetchNotesFromDB() {
+async function fetchNotesFromDB() {
   if (!db) return;
   const transaction = db.transaction("Notes", "readonly");
   const store = transaction.objectStore("Notes");
   const getAllNotes = store.getAll();
 
-  getAllNotes.onsuccess = function (event) {
-    notesRef.value = event.target.result;
-  };
+  return new Promise((resolve, reject) => {
+    getAllNotes.onsuccess = function (event) {
+      notesRef.value = event.target.result;
+      resolve();
+    };
+    getAllNotes.onerror = function (event) {
+      reject(event.target.error);
+    };
+  });
 }
 
-// Haal notities op van de backend
-function fetchNotesFromBackend() {
-  axios.get("http://localhost:3000/notes")
-    .then(response => {
-      notesRef.value = response.data;
-      saveNotesToDB(response.data); // Sla notities op in IndexedDB
-    })
-    .catch(error => {
-      console.error("Fout bij het ophalen van notities van de server:", error);
-    });
+async function fetchNotesFromBackend() {
+  try {
+    const response = await axios.get("http://localhost:3000/notes");
+    await saveNotesToDB(response.data); // Sla notities op in IndexedDB
+  } catch (error) {
+    console.error("Fout bij het ophalen van notities van de server:", error);
+  }
 }
 
-// Sla notities op in IndexedDB
-function saveNotesToDB(notes) {
+async function saveNotesToDB(notes) {
   if (!db) return;
+
   const transaction = db.transaction("Notes", "readwrite");
   const store = transaction.objectStore("Notes");
+
+  await clearStore(store);
+
   notes.forEach(note => {
     store.add(note);
   });
 }
 
-// Voeg een nieuwe notitie toe
+async function clearStore(store) {
+  return new Promise((resolve, reject) => {
+    const request = store.clear();
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
 function addNote() {
   const note = { ...newNote.value };
 
-  // Als de notitie geen ID heeft, voeg een nieuwe ID toe
   if (!note.id) {
-    note.id = Date.now(); // Gebruik milliseconden sinds de epoch als ID
+    note.id = Date.now(); // Gebruik milliseconden sinds de epoch als ID => altijd uniek
   }
 
   notesRef.value.push(note);
-  saveNoteToDB(note); // Sla notitie op in IndexedDB
-  newNote.value = { title: "", content: "" }; // Leeg het invoerveld
+  saveNoteToDB(note);
+  newNote.value = { title: "", content: "" };
+  displayAddNote();
 }
 
-// Sla een enkele notitie op in IndexedDB
 function saveNoteToDB(note) {
   if (!db) return;
   const transaction = db.transaction("Notes", "readwrite");
   const store = transaction.objectStore("Notes");
 
   if (!note.id) {
-    const request = store.add(note); // Voeg een nieuwe notitie toe met een auto-incremented ID
+    const request = store.add(note);
     request.onerror = function (event) {
       console.error("IndexedDB add error:", event.target.error);
     };
   } else {
-    const request = store.put(note); // Werk de bestaande notitie bij
+    const request = store.put(note);
     request.onerror = function (event) {
       console.error("IndexedDB put error:", event.target.error);
     };
   }
 }
 
-// Verwijder een notitie
 function deleteNote(id) {
   if (!db) return;
   const transaction = db.transaction("Notes", "readwrite");
   const store = transaction.objectStore("Notes");
   store.delete(id);
-  fetchNotesFromDB(); // Opnieuw laden van notities na verwijdering
+  fetchNotesFromDB();
 }
 
-//verwijder alle notes van json server
 async function removeAllNotesFromServer() {
   try {
-    // Haal alle notities op van de server
     const response = await axios.get("http://localhost:3000/notes");
     const notes = response.data;
 
-    // Maak een array van promises voor elke DELETE-request
-    const deletePromises = notes.map(note => axios.delete(`http://localhost:3000/notes/${note.id}`));
-
-    // Wacht tot alle promises zijn opgelost voordat je verder gaat
-    await Promise.all(deletePromises);
+    for (const note of notes) {
+      await axios.delete(`http://localhost:3000/notes/${note.id}`)
+    }
 
     console.log("Alle notities van de server zijn verwijderd.");
   } catch (error) {
@@ -127,7 +130,6 @@ async function removeAllNotesFromServer() {
   }
 }
 
-//schrijf een note naar de json-server
 async function saveNoteToServer(note) {
   try {
     await axios.post("http://localhost:3000/notes", note);
@@ -137,7 +139,6 @@ async function saveNoteToServer(note) {
   }
 }
 
-//sync met backend. 
 async function syncNotesWithBackend() {
   console.log('Syncing with backend.')
   await removeAllNotesFromServer();
@@ -151,17 +152,15 @@ async function syncNotesWithBackend() {
     for (const note of notes) {
       await saveNoteToServer(note);
     }
+    await fetchNotesFromBackend();
     console.log("Alle notities zijn gesynchroniseerd met de server.");
   };
 }
-// Kijk naar veranderingen in de internetverbinding
+
 window.addEventListener("online", () => {
   syncNotesWithBackend();
-  fetchNotesFromBackend()
-  
 });
 
-// Functie om het weergeven van de notitie toevoegen/verbergen te schakelen
 const displayAddNote = () => {
   showAddNotes.value = !showAddNotes.value;
 };
@@ -171,7 +170,7 @@ const displayAddNote = () => {
   <main>
     <header>
       <h1>Mijn notities</h1>
-      <button class="AddNoteButton" @click="displayAddNote()">+</button>
+      <button class="AddNoteButton" @click="displayAddNote">+</button>
     </header>
 
     <section id="notes-container">
@@ -189,12 +188,12 @@ const displayAddNote = () => {
     <div class="AddNoteInner">
       <div class="addNoteHeader">
         <h1>Notitie toevoegen:</h1>
-        <button class="closeWindow" @click="displayAddNote()">X</button>
+        <button class="closeWindow" @click="displayAddNote">X</button>
       </div>
       <div class="form" id="note-form">
         <input type="text" id="addTitle" placeholder="Titel" v-model="newNote.title">
         <textarea id="addContent" placeholder="Omschrijving" v-model="newNote.content"></textarea>
-        <button @click="addNote()">Toevoegen</button>
+        <button @click="addNote">Toevoegen</button>
       </div>
     </div>
   </div>
