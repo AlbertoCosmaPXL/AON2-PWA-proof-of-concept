@@ -16,18 +16,21 @@ async function initializeDB() {
 
   request.onerror = (event) => console.error("IndexedDB error:", event);
 
-  request.onupgradeneeded = function () {
-    db = request.result;
+  request.onupgradeneeded = function (event) {
+    console.log("Upgrade needed");
+    db = event.target.result;
     const store = db.createObjectStore("Notes", { keyPath: "id", autoIncrement: true });
     store.createIndex("title", "title", { unique: false });
     store.createIndex("content", "content", { unique: false });
   };
 
   request.onsuccess = async function (event) {
+    console.log("IndexedDB success");
     db = event.target.result;
-    fetchNotesFromBackend();
+    await fetchNotesFromBackend(); // Haal notities op uit backend
   };
 }
+
 
 async function fetchNotesFromDB() {
   if (!db) return;
@@ -50,10 +53,12 @@ async function fetchNotesFromBackend() {
   try {
     const response = await axios.get("http://localhost:3000/notes");
     await saveNotesToDB(response.data); // Sla notities op in IndexedDB
+    await fetchNotesFromDB(); // Haal notities op uit IndexedDB en werk notesRef bij
   } catch (error) {
     console.error("Fout bij het ophalen van notities van de server:", error);
   }
 }
+
 
 async function saveNotesToDB(notes) {
   if (!db) return;
@@ -80,13 +85,20 @@ function addNote() {
   const note = { ...newNote.value };
 
   if (!note.id) {
-    note.id = Date.now(); // Gebruik milliseconden sinds de epoch als ID => altijd uniek
+    note.id = Date.now() + ""; // Gebruik milliseconden sinds de epoch als ID => altijd uniek
   }
 
   notesRef.value.push(note);
   saveNoteToDB(note);
+  try {
+    console.log(note)
+    saveNoteToServer(note);
+  }
+  catch {console.warn("Failed to save note to server")}
+
   newNote.value = { title: "", content: "" };
   displayAddNote();
+
 }
 
 function saveNoteToDB(note) {
@@ -107,12 +119,19 @@ function saveNoteToDB(note) {
   }
 }
 
-function deleteNote(id) {
+async function deleteNote(id) {
   if (!db) return;
   const transaction = db.transaction("Notes", "readwrite");
   const store = transaction.objectStore("Notes");
   store.delete(id);
   fetchNotesFromDB();
+
+  try {
+    await axios.delete(`http://localhost:3000/notes/${id}`);
+  }
+  catch {
+    console.log("Verwijderen van de note uit server niet gelukt")
+  }
 }
 
 async function removeAllNotesFromServer() {
@@ -174,7 +193,7 @@ const displayAddNote = () => {
     </header>
 
     <section id="notes-container">
-      <div v-bind:key="note.id" v-for="note in notesRef" class="note">
+      <div v-bind:key="note.id" v-for="note of notesRef" class="note">
         <div class="noteHeader">
           <h3>{{ note.title }}</h3>
           <button class="deleteButton" @click="deleteNote(note.id)">X</button>

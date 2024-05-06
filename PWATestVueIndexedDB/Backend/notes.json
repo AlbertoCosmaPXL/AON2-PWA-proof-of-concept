@@ -1,29 +1,14 @@
 {
   "notes": [
     {
-      "id": 1714979842076,
-      "title": "ik zit in de klas",
-      "content": "hallo"
+      "id": "1715032049318",
+      "title": "Database",
+      "content": "We moeten nog data in de database steken!"
     },
     {
-      "id": 1714980051996,
-      "title": "Paardenapp maken",
-      "content": "we moeten de paarden app nog afmaken"
-    },
-    {
-      "id": 1714979842076,
-      "title": "ik zit in de klas",
-      "content": "hallo"
-    },
-    {
-      "id": 1714980051996,
-      "title": "Paardenapp maken",
-      "content": "we moeten de paarden app nog afmaken"
-    },
-    {
-      "id": 1714984330852,
-      "title": "boris note",
-      "content": "g"
+      "id": "1715032085039",
+      "title": "Seminarie",
+      "content": "OMG, morgen seminarium!!"
     }
   ]
 }
